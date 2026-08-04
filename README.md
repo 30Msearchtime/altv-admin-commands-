@@ -27,7 +27,7 @@ A modern, type-safe TypeScript script for alt:V multiplayer servers providing a 
 |----------|--------------|-------|
 | `/heal` | Restore player health to full | `/heal` |
 | `/armor` | Give full armor to the player | `/armor` |
-| `/car [model]` | Spawn a vehicle in front of the player | `/car adder` |
+| `/car [model]` | Spawn a vehicle in front of the player and enter it | `/car adder` |
 | `/tp [x] [y] [z]` | Teleport to coordinates | `/tp 0 0 72` |
 
 ---
@@ -45,8 +45,8 @@ A modern, type-safe TypeScript script for alt:V multiplayer servers providing a 
 ### 1. Clone the repository into your server's `resources` folder
 ```bash
 cd resources
-git clone https://github.com/30Msearchtime/altv-admin-commands-.git
-cd altv-admin-commands-
+git clone https://github.com/30Msearchtime/altv-admin-commands.git
+cd altv-admin-commands
 ```
 
 ### 2. Install dependencies
@@ -67,6 +67,8 @@ resources = [
 ]
 ```
 
+> ⚠️ `chat` **must** be listed before `altv-admin-commands`, otherwise commands will not register.
+
 ### 5. Configure admins
 Edit `shared/config.ts` and add your admin player names:
 ```typescript
@@ -75,6 +77,8 @@ export const config: AdminConfig = {
   // ... rest of config
 };
 ```
+
+> ⚠️ Admin names are **case-sensitive** and matched against `player.name`. For production use, consider switching to `player.hwidHash` or `player.socialID` for spoofing protection.
 
 ### 6. Restart your server 🎮  
 
@@ -93,13 +97,13 @@ export const config: AdminConfig = {
   permissions: {
     heal: [],
     armor: [],
-    car: ["PlayerName1"],
+    car: ["PlayerName1"],  // Only PlayerName1 can spawn cars
     tp: []
   }
 };
 ```
 
-Empty arrays = accessible to all admins.
+Empty arrays = accessible to **all** admins.
 
 ---
 
@@ -139,17 +143,23 @@ export function yourCommand(player: alt.Player, args: string[]): void {
     return;
   }
 
-  // Your logic here
-  PermissionManager.sendSuccess(player, 'Command executed!');
-  PermissionManager.log(player, 'yourcommand', args);
+  try {
+    // Your logic here
+    PermissionManager.sendSuccess(player, 'Command executed!');
+    PermissionManager.log(player, 'yourcommand', args);
+  } catch (err) {
+    PermissionManager.sendError(player, 'Something went wrong.');
+    alt.logError(`[Admin Commands] yourcommand error: ${err}`);
+  }
 }
 ```
 
 ### Step 2: Register your command
-In `server/server.ts`:
+In `server/server.ts`, inside the `setupCommands` function:
 ```typescript
 import { yourCommand } from './commands/yourcommand.js';
 
+// Inside setupCommands():
 chat.registerCmd('yourcommand', (player: alt.Player, ...args: string[]) => {
   yourCommand(player, args);
 });
@@ -186,16 +196,21 @@ npm run build
 ## ❗ Troubleshooting
 
 ### Commands not working
-- Ensure `chat` resource loads **before** this resource in `server.toml`
+- Ensure `chat` resource loads **before** `altv-admin-commands` in `server.toml`
 - Verify admin player names are correct (case-sensitive)
 - Check console logs for build errors
+- Look for `[Admin Commands] Successfully loaded 4 admin commands` in the server log to confirm the resource started correctly
+
+### No feedback messages in chat
+- Feedback messages are sent via `player.emit('chat:message', ...)` — make sure your `chat` resource handles this event on the client side
 
 ### TypeScript errors
 - Run `npm install` to ensure all types are installed
 - Confirm Node.js 16+ is used
 
 ### Vehicle spawn issues
-- Ensure the vehicle model name is valid
+- Ensure the vehicle model name is valid (e.g. `adder`, `zentorno`)
+- The admin is automatically placed into the driver's seat after spawning
 - Review server console for error messages
 
 ---
@@ -224,7 +239,7 @@ Licensed under the **MIT License** — see the [LICENSE](LICENSE) file for detai
 If you encounter any issues or need help:
 - Open an issue on GitHub  
 - Check existing issues  
-- Join the official alt:V Discord for help  
+- Join the official [alt:V Discord](https://discord.altv.mp) for help  
 
 ---
 
